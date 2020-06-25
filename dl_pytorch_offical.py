@@ -68,7 +68,7 @@ b = torch.from_numpy(a)
 np.add(a, 1, out=a)
 print(a)
 print(b)
-#%%  GPU
+#%%  GPU (check this carefully, for some update issues this may not work next time you run :(
 if torch.cuda.is_available():
     device = torch.device("cuda")          
     y = torch.ones_like(x, device=device)  
@@ -201,6 +201,17 @@ print(out)
 
 net.zero_grad()
 out.backward(torch.randn(1, 10))  # random gradient
+
+
+#%% Intermediate layers
+
+out1 = net.conv1(input) # to be appropriate do what the forward did 
+out1 = F.max_pool2d(F.relu(net.conv1(input)), (2,2))
+out2 = F.max_pool2d(F.relu(net.conv2(out1)), (2,2))  # out2.shape
+
+out3 = out2.view(-1, net.num_flat_features(out2))
+
+out4 = F.relu(net.fc1(out3))  # so on and so forth
 
 #%% Loss function
 
