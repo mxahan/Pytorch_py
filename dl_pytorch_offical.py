@@ -203,7 +203,7 @@ net.zero_grad()
 out.backward(torch.randn(1, 10))  # random gradient
 
 
-#%% Intermediate layers
+#%% Intermediate layers output
 
 out1 = net.conv1(input) # to be appropriate do what the forward did 
 out1 = F.max_pool2d(F.relu(net.conv1(input)), (2,2))
@@ -222,7 +222,8 @@ criterion = nn.MSELoss()
 
 loss = criterion(output, target)
 print(loss)
-#%%
+#%% Looking into gradient [It does so many things in behind]
+
 print(loss.grad_fn)  # MSELoss
 print(loss.grad_fn.next_functions[0][0])  # Linear
 print(loss.grad_fn.next_functions[0][0].next_functions[0][0])  # ReLU
@@ -241,6 +242,7 @@ loss.backward()
 print('conv1.bias.grad after backward')
 print(net.conv1.bias.grad)
 
+# custom update 
 
 learning_rate = 0.01
 for f in net.parameters():
@@ -265,11 +267,98 @@ optimizer.step()    # Does the update
 
 #%% training a classifier parts
 
+# torch and torchvision are libraries for python
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
 
-#%% 
+#%%  One of the most important part is to prepare dataset 
+# things get interesting from here
+# there are many ways to create the testloader
+# link: https://stackoverflow.com/questions/44429199/how-to-load-a-list-of-numpy-arrays-to-pytorch-dataset-loader
+# detail: https://pytorch.org/docs/stable/data.html
+
+# way 1: TensorDataset
+from PIL import Image
+from torch.utils.data import TensorDataset, DataLoader, Dataset
+
+
+my_x = [np.array([[1.0,2],[3,4]]),np.array([[5.,6],[7,8]])] # a list of numpy arrays
+my_y = [np.array([4.]), np.array([2.])] # another list of numpy arrays (targets)
+
+my_x = np.array(my_x)
+my_y = np.array(my_y)
+
+
+tensor_x = torch.Tensor(my_x)
+tensor_y = torch.Tensor(my_y)
+
+my_data1 = TensorDataset(tensor_x,tensor_y)
+my_dataload1 = DataLoader(my_data1)
+
+# Now to recall them
+
+dati =  iter(my_dataload1)
+im,lb = dati.next()
+# or
+for i,l in my_dataload1:
+    print(i)
+    
+# Way 2: This will allow us to implement transform 
+# we will avoid TensorDataset here
+# create new dataset class
+# will send list as data and target
+class my_dataset(Dataset):
+    def __init__(self, data, targets, transform=None):
+        self.data = data
+        self.targets = torch.LongTensor(targets)
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        x = self.data[index]
+        y = self.targets[index]
+        if self.transform:
+            x =  Image.fromarray(self.data[index].astype(np.uint8).transpose(1,2,0))
+            x = self.transform(x)
+        
+        return x,y
+        
+    def __len__(self):
+        return len(self.data)
+
+my_x = [np.array([[5,2],[6,4]]),np.array([[8.,3],[6,4]])] # a list of numpy arrays
+my_y = [np.array([3.]), np.array([1.])] # another list of numpy arrays (targets)
+
+my_x = np.array(my_x)
+my_y = np.array(my_y)
+
+cls_data = my_dataset(list(my_x), list(my_y))
+my_dataload2 = DataLoader(cls_data)
+
+
+for i,l in my_dataload2:
+    print(i,l)
+
+
+# we can concatenate the dataset too
+
+d_conc =  torch.utils.data.ConcatDataset([my_data1, cls_data])    
+
+my_dataload3 = DataLoader(d_conc, batch_size=2)
+
+
+for i,l in my_dataload3:
+    print(i,l)
+
+for i, im in enumerate(my_dataload3):
+    print(i, im[0], im[1])
+
+
+# if we understand this then the pytorch data preparation is complete:)
+
+
+#%% Using Cifar dataset
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -349,6 +438,20 @@ import torch.optim as optim
 criterio = nn.CrossEntropyLoss()
 optimizer =  optim.SGD(net.parameters(), lr = 0.001, momentum=0.9)
 
+# Partial parameters update
+# the following two lines are dependent to each other. one define and second creats the paramers
+# start
+partial_param1 = [{'params':net.conv1.parameters()},
+                 {'params':net.conv2.parameters()},
+                 {'params':net.fc1.parameters()}]
+part_optim1 = optim.SGD(partial_param1, lr = 0.001, momentum=0.9)
+# end
+
+partial_param2 = [{'params':net.fc1.parameters()},
+                  {'params':net.fc2.parameters()}]
+part_optim2 = optim.SGD(partial_param2, lr = 0.001, momentum=0.9)
+# alternatives: https://discuss.pytorch.org/t/how-the-pytorch-freeze-network-in-some-layers-only-the-rest-of-the-training/7088/15
+
 #%% Network training
 
 net.to(device)
@@ -357,16 +460,25 @@ net.to(device)
 for epoch in range(2):
     running_loss = 0 
     for i, data  in enumerate(trainloader, 0):
-        
+        ## we discussed dataloader earlier
         inputs, labels = data[0].to(device), data[1].to(device)
+        ## set zero gradient
+        #optimizer.zero_grad()
         
-        optimizer.zero_grad()
-        
+        part_optim1.zero_grad()
+        part_optim2.zero_grad()
+        ## output
         outputs = net(inputs)
-        
+        ## loss calculation
         loss = criterio(outputs, labels)
+        
+        # apply gradient
         loss.backward()
-        optimizer.step()
+        # optimizer.step()
+        
+        part_optim1.step()
+        part_optim2.step()
+        
         running_loss += loss.item()
         if i % 2000 == 1999:    # print every 2000 mini-batches
             print('[%d, %5d] loss: %.3f' %
