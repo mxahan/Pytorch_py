@@ -1,7 +1,6 @@
 #%% Library import
 from __future__ import  print_function
 import  torch
-
 import numpy as np
 #%% Basic commands and operation 
 
@@ -88,7 +87,6 @@ y = x +2
 print(y)    
 
 print(y.grad_fn)
-
 
 z = y*y*3
 out = z.mean()
@@ -222,6 +220,7 @@ criterion = nn.MSELoss()
 
 loss = criterion(output, target)
 print(loss)
+
 #%% Looking into gradient [It does so many things in behind]
 
 print(loss.grad_fn)  # MSELoss
@@ -274,22 +273,25 @@ import torchvision
 import torchvision.transforms as transforms
 
 #%%  One of the most important part is to prepare dataset 
+
 # things get interesting from here
+
 # there are many ways to create the testloader
+
 # link: https://stackoverflow.com/questions/44429199/how-to-load-a-list-of-numpy-arrays-to-pytorch-dataset-loader
+
 # detail: https://pytorch.org/docs/stable/data.html
 
 # way 1: TensorDataset
+
 from PIL import Image
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 
-
 my_x = [np.array([[1.0,2],[3,4]]),np.array([[5.,6],[7,8]])] # a list of numpy arrays
 my_y = [np.array([4.]), np.array([2.])] # another list of numpy arrays (targets)
-
+# loop randomly get 16 number 
 my_x = np.array(my_x)
 my_y = np.array(my_y)
-
 
 tensor_x = torch.Tensor(my_x)
 tensor_y = torch.Tensor(my_y)
@@ -299,16 +301,23 @@ my_dataload1 = DataLoader(my_data1)
 
 # Now to recall them
 
-dati =  iter(my_dataload1)
-im,lb = dati.next()
+dati   = iter(my_dataload1)
+im, lb = dati.next()
+
 # or
+
 for i,l in my_dataload1:
     print(i)
     
 # Way 2: This will allow us to implement transform 
+
 # we will avoid TensorDataset here
+
 # create new dataset class
+
 # will send list as data and target
+
+
 class my_dataset(Dataset):
     def __init__(self, data, targets, transform=None):
         self.data = data
@@ -321,19 +330,23 @@ class my_dataset(Dataset):
         if self.transform:
             x =  Image.fromarray(self.data[index].astype(np.uint8).transpose(1,2,0))
             x = self.transform(x)
-        
         return x,y
         
     def __len__(self):
         return len(self.data)
 
+
+
 my_x = [np.array([[5,2],[6,4]]),np.array([[8.,3],[6,4]])] # a list of numpy arrays
+
 my_y = [np.array([3.]), np.array([1.])] # another list of numpy arrays (targets)
 
 my_x = np.array(my_x)
+
 my_y = np.array(my_y)
 
 cls_data = my_dataset(list(my_x), list(my_y))
+
 my_dataload2 = DataLoader(cls_data)
 
 
@@ -359,8 +372,9 @@ for i, im in enumerate(my_dataload3):
 
 
 #%% Using Cifar dataset
+
 transform = transforms.Compose(
-    [transforms.ToTensor(),
+    [transforms.ToTensor(),   
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
@@ -371,6 +385,7 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform)
+
 testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=2)
 
@@ -378,6 +393,7 @@ classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 #%%
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -427,8 +443,8 @@ class Net(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
-
-
+    
+    
 net = Net()
 
 #%% loss definition
@@ -436,26 +452,30 @@ net = Net()
 import torch.optim as optim
 
 criterio = nn.CrossEntropyLoss()
+
 optimizer =  optim.SGD(net.parameters(), lr = 0.001, momentum=0.9)
 
 # Partial parameters update
 # the following two lines are dependent to each other. one define and second creats the paramers
 # start
+
 partial_param1 = [{'params':net.conv1.parameters()},
                  {'params':net.conv2.parameters()},
                  {'params':net.fc1.parameters()}]
+
 part_optim1 = optim.SGD(partial_param1, lr = 0.001, momentum=0.9)
 # end
 
 partial_param2 = [{'params':net.fc1.parameters()},
                   {'params':net.fc2.parameters()}]
+
 part_optim2 = optim.SGD(partial_param2, lr = 0.001, momentum=0.9)
+
 # alternatives: https://discuss.pytorch.org/t/how-the-pytorch-freeze-network-in-some-layers-only-the-rest-of-the-training/7088/15
 
 #%% Network training
 
 net.to(device)
-
 
 for epoch in range(2):
     running_loss = 0 
@@ -463,8 +483,7 @@ for epoch in range(2):
         ## we discussed dataloader earlier
         inputs, labels = data[0].to(device), data[1].to(device)
         ## set zero gradient
-        #optimizer.zero_grad()
-        
+        ## optimizer.zero_grad()
         part_optim1.zero_grad()
         part_optim2.zero_grad()
         ## output
@@ -484,14 +503,18 @@ for epoch in range(2):
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss / 2000))
             running_loss = 0.0    
-        
+            
+
 #%% Saving models
 
 PATH = './cifar_net.pth'
 torch.save(net.state_dict(), PATH)
 type(net.state_dict())
 net.state_dict().keys()
-# net.state_dict() # are dictionary check the keys and values for the ordered dictionary
+# net.state_dict() 
+# are dictionary check the keys and values for the ordered dictionary
+
+
 #%% test the model
 
 dataiter =  iter(testloader)
@@ -516,8 +539,11 @@ print('Predicted: ', ' '.join('%5s' % classes[predicted[j]]
                               for j in range(4)))
 
 #%% full test set test
+
 correct = 0
+
 total = 0
+
 with torch.no_grad():
     for data in testloader:
         images, labels = data
@@ -529,8 +555,12 @@ with torch.no_grad():
 print('Accuracy of the network on the 10000 test images: %d %%' % (
     100 * correct / total))
 
+
 #%% class based accuracy
+
+
 class_correct = list(0. for i in range(10))
+
 class_total = list(0. for i in range(10))
 with torch.no_grad():
     for data in testloader:
@@ -550,7 +580,7 @@ for i in range(10):
     
 #%% Gpu supprot
 
-evice = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Assuming that we are on a CUDA machine, this should print a CUDA device:
 
@@ -561,4 +591,7 @@ print(device)
 net.to(device)
 
 inputs, labels = data[0].to(device), data[1].to(device)
-#%% 
+
+#%% Dataset Tutorial 
+
+# https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
